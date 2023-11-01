@@ -1,0 +1,16 @@
+/Datasets/
+/Networks/
+
+__pycache__
+*.png
+*.sqlite
+*.pyc
+**/*.pyc
+*.log
+*.rar
+*.dat
+~$*
+*tmp
+*.dat
+
+
