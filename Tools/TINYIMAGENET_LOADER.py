@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
 import torch.nn.functional as F
 import torch.utils.data as data
+from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 
 import torchvision
@@ -14,7 +15,7 @@ from torchvision import transforms
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
-
+from PIL import Image
 
 import os
 from torchsummary import summary
@@ -46,19 +47,61 @@ class GetTransforms():
             transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)) #Normalize all the images
         ]
         return test_transforms
+    
 
-#Create Loaders
+class CustomDataset(datasets.VisionDataset):
+    def __init__(self, images, labels ,transform):
+        self.images = images
+        self.labels = labels
+        self.transform = transform
+    
 
-def TINYIMAGENETDataLoader(batch_size=256):
+    def __getitem__(self, index):
+        img = self.images[index]
+        img = Image.fromarray(img)
+        img = self.transform(img)
+
+        lab = self.labels[index]
+
+        return img, lab
+    
+    def __len__(self):
+        return len(self.images)
+
+
+def TINYIMAGENETDataLoader(batch_size=256, NPZ=True):
     transformations = GetTransforms()
     train_transforms = transforms.Compose(transformations.trainparams())
     test_transforms = transforms.Compose(transformations.testparams()) 
 
-    DataPath="./Datasets/TINY-IMAGENET/tiny-imagenet-200"
-    trainset = datasets.ImageFolder(DataPath+'/train', transform=train_transforms)
-    testset = datasets.ImageFolder(DataPath+'/test_pro', transform=test_transforms)
+    if NPZ==False:
 
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,shuffle=True, num_workers=2)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,shuffle=False, num_workers=2)
+        DataPath="./Datasets/TINY-IMAGENET/tiny-imagenet-200"
+        trainset = datasets.ImageFolder(DataPath+'/train', transform=train_transforms)
+        testset = datasets.ImageFolder(DataPath+'/test_pro', transform=test_transforms)
 
-    return trainloader, testloader
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,shuffle=True, num_workers=2)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,shuffle=False, num_workers=2)
+
+        return trainloader, testloader
+    
+    #Load from NPZ, good for colab
+    if NPZ==True:
+
+        DataPath="./Datasets/TINY-IMAGENET/tiny-imagenet-200_NPZ"
+
+        data_train = np.load(DataPath+'/train.npz')
+        images_train = data_train['images']
+        labels_train = data_train['labels']
+
+        data_test = np.load(DataPath+'/test_pro.npz')
+        images_test = data_test['images']
+        labels_test = data_test['labels']
+
+        trainset = CustomDataset(images_train, labels_train, transform=train_transforms)
+        testset = CustomDataset(images_test, labels_test, transform=test_transforms)
+
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,shuffle=True, num_workers=2)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,shuffle=False, num_workers=2)
+
+        return trainloader, testloader
