@@ -79,10 +79,11 @@ def TinyImagenetC_DataLoader(NPZ=True,batch_size=64):
                 data = np.load(data_path)
                 images = data['images']
                 labels = data['labels']
+                
 
                 DataSet = CustomDataset(images, labels, transform=transform)
                 Dataloader = torch.utils.data.DataLoader(DataSet, batch_size=batch_size,shuffle=True, num_workers=2)
-
+                
                 Level_Dataloaders[clevel]=Dataloader #Levels for individual corruptions
 
             Dataloaders[cname]=Level_Dataloaders #All Corruptions and their levels

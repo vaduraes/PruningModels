@@ -74,7 +74,7 @@ def CIFAR10C_DataLoader(root="./Datasets/CIFAR-10/CIFAR-10-C/", batch_size=64):
     
     for cname in CIFAR10C_corruptions:
         dataset = CIFAR10C(root,cname,transform=transform)
-        CIFARC_Loader=torch.utils.data.DataLoader(dataset, batch_size=256,shuffle=False, num_workers=2)
+        CIFARC_Loader=torch.utils.data.DataLoader(dataset, batch_size=batch_size,shuffle=False, num_workers=2)
         Dataloaders[cname]=CIFARC_Loader
 
     return Dataloaders
