@@ -41,3 +41,6 @@ Saved train/test loss progess (.npz)
 ######################## On Datasets:
 
 
+Ideas:
+Train with a cost function that penalizes class imballance
+Train with OOD data as well

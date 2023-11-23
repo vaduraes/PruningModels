@@ -82,7 +82,7 @@ def measure_global_sparsity(model,
     return num_zeros, num_elements, sparsity
 
 
-def model_training(model, device, train_dataloader, optimizer, train_acc, train_losses):
+def model_training(model, device, train_dataloader, optimizer, train_acc, train_losses,lambda_l1):
 
     model.to(device)
     model.train()
@@ -96,6 +96,14 @@ def model_training(model, device, train_dataloader, optimizer, train_acc, train_
         optimizer.zero_grad()
         y_pred = model(data)
         loss = F.nll_loss(y_pred, target) #negative log likelihood loss
+
+        # Calculate L1 regularization manually
+        l1_reg = 0.0
+        for param in model.parameters():
+            l1_reg += torch.norm(param, p=1)
+
+        # Add L1 regularization to the loss
+        loss += lambda_l1 * l1_reg
 
 
         train_losses.append(loss.item())
@@ -157,9 +165,12 @@ def model_testing(model, device, test_dataloader, test_acc, test_losses, misclas
 #TestCLoader: Corrupted Test Data
 #PruningRate: Rate that we will prune the model e.g. 10% per iteration
 #NumEpochsEachPruneRetrain: Number of epochs that we will retrain the model after pruning (do it untill converge)
+#weight_decay: L2 regularization
 
+#https://github.com/ChloeeeYoo/SimplePruning-PyTorch/blob/master/prune.py
 SaveCorruptedAtP=[0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1,0.05,0.01]#Corrupted data will be saved at these sparsity levels
-def iterative_pruning(model, device, TrainLoader, TestLoader, TestCLoader, PruningRate, SaveTrainStepsName,ReadMe, NumEpochsEachPruneRetrain=1,MaximumPruneLevel=0.01, SaveCorruptedAtP=SaveCorruptedAtP): 
+
+def iterative_pruning(model, device, TrainLoader, TestLoader, TestCLoader, PruningRate, SaveTrainStepsName,ReadMe, lambda_l1=0, lambda_l2=0.0005, NumEpochsEachPruneRetrain=1,MaximumPruneLevel=0.01, SaveCorruptedAtP=SaveCorruptedAtP): 
   #Total number of pruning iterations so that (1-PruningRate)^TotalNumPruningIterations = MaximumPruneLevel
   TotalNumPruningIterations= int(np.round(np.log(MaximumPruneLevel)/np.log(1-PruningRate))) 
 
@@ -191,7 +202,6 @@ def iterative_pruning(model, device, TrainLoader, TestLoader, TestCLoader, Pruni
 
   #remove duplicates
   IdxSaveCorrupted=list(set(IdxSaveCorrupted))
-
   #Get statistics before pruning---------
   Sparcity_List.append(-1)
 
@@ -234,13 +244,14 @@ def iterative_pruning(model, device, TrainLoader, TestLoader, TestCLoader, Pruni
     test_losses = []
  
     # Retrain the model
-    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    #weight_decay = 0.0005   # L2 regularization
+    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=lambda_l2)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.05, patience=2, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-08, verbose=True)
     
 
     #Non Corrupted Data
-    for i in range(NumEpochsEachPruneRetrain):
-        model_training(model, device, TrainLoader, optimizer, train_acc, train_losses)
+    for j in range(NumEpochsEachPruneRetrain):
+        model_training(model, device, TrainLoader, optimizer, train_acc, train_losses, lambda_l1 = lambda_l1)
         scheduler.step(train_losses[-1])
 
     _ = model_testing(model, device, TestLoader, test_acc, test_losses)
@@ -261,7 +272,7 @@ def iterative_pruning(model, device, TrainLoader, TestLoader, TestCLoader, Pruni
 
     else:
       print("--Skipping Acc Comp For Corrupted Data--")
-      for cname in tqdm(Corruptions):
+      for cname in Corruptions:
         Acc_Corruptions[cname].append(-1)
       Avg_Corrup_Acc_List.append(-1)
 
